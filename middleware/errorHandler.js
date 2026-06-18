@@ -17,6 +17,12 @@ const errorHandler = (err, req, res, _next) => {
     message = messages.join(", ") || "Validation Error";
   }
 
+  if (err.name === "ZodError") {
+    statusCode = 400;
+    const messages = err.issues.map((i) => i.message);
+    message = messages.join(", ") || "Validation Error";
+  }
+
   if (err.name === "CastError") {
     statusCode = 400;
     message = `Invalid ${err.path}: ${err.value}`;
