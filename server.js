@@ -45,8 +45,8 @@ async function start() {
       const { ebookId, userId, type } = session.metadata;
 
       if (type === "writer_verification") {
-        const db = (await import("./config/db.js")).connectDB;
-        const usersCollection = (await import("mongoose")).default.connection.db.collection("user");
+        const mongoose = await import("mongoose");
+        const usersCollection = mongoose.default.connection.db.collection("user");
         await usersCollection.findOneAndUpdate(
           { email: session.customer_details?.email },
           { $set: { isVerified: true, role: "writer" } }
