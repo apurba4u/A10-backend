@@ -15,5 +15,7 @@ router.post("/", requireAuth, requireRole("writer", "admin"), ebookController.cr
 router.put("/:id", requireAuth, requireRole("writer", "admin"), ebookController.updateEbook);
 router.delete("/:id", requireAuth, requireRole("writer", "admin"), ebookController.deleteEbook);
 router.patch("/:id/publish", requireAuth, requireRole("writer", "admin"), ebookController.togglePublish);
+router.post("/:id/approve", requireAuth, requireRole("admin"), ebookController.approveEbook);
+router.post("/:id/reject", requireAuth, requireRole("admin"), ebookController.rejectEbook);
 
 export default router;

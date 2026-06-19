@@ -81,6 +81,11 @@ export const listCoupons = asyncHandler(async (req, res) => {
   res.json({ success: true, data: coupons });
 });
 
+export const listPublicCoupons = asyncHandler(async (req, res) => {
+  const coupons = await Coupon.find({ isActive: true }).sort({ discountPercent: -1 });
+  res.json({ success: true, data: coupons });
+});
+
 export const deleteCoupon = asyncHandler(async (req, res) => {
   const coupon = await Coupon.findByIdAndDelete(req.params.id);
   if (!coupon) {

@@ -4,6 +4,7 @@ import requireAuth from "../middleware/requireAuth.js";
 
 const router = Router();
 
+router.get("/public", couponController.listPublicCoupons);
 router.post("/validate", requireAuth, couponController.validateCoupon);
 router.post("/", requireAuth, couponController.createCoupon);
 router.get("/", requireAuth, couponController.listCoupons);

@@ -53,6 +53,11 @@ const ebookSchema = new mongoose.Schema(
       ref: "User",
       required: [true, "Writer is required"],
     },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
     isPublished: {
       type: Boolean,
       default: false,

@@ -1,5 +1,6 @@
 import Ebook from "../models/Ebook.js";
 import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 import { ApiError } from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createEbookSchema, updateEbookSchema } from "../validators/ebook.js";
@@ -127,6 +128,8 @@ export const createEbook = asyncHandler(async (req, res) => {
   const ebook = await Ebook.create({
     ...result.data,
     writer: req.user.id,
+    status: "pending",
+    isPublished: false,
   });
 
   res.status(201).json({ success: true, data: ebook });
@@ -183,6 +186,46 @@ export const togglePublish = asyncHandler(async (req, res) => {
   await ebook.save();
 
   res.json({ success: true, data: ebook });
+});
+
+export const approveEbook = asyncHandler(async (req, res) => {
+  const ebook = await Ebook.findById(req.params.id);
+  if (!ebook) {
+    throw new ApiError("Ebook not found", 404);
+  }
+
+  ebook.status = "approved";
+  ebook.isPublished = true;
+  await ebook.save();
+
+  await Notification.create({
+    user: ebook.writer,
+    title: "Ebook Approved",
+    message: `Your ebook "${ebook.title}" has been approved and is now published.`,
+    type: "success",
+  });
+
+  res.json({ success: true, message: "Ebook approved", data: ebook });
+});
+
+export const rejectEbook = asyncHandler(async (req, res) => {
+  const ebook = await Ebook.findById(req.params.id);
+  if (!ebook) {
+    throw new ApiError("Ebook not found", 404);
+  }
+
+  ebook.status = "rejected";
+  ebook.isPublished = false;
+  await ebook.save();
+
+  await Notification.create({
+    user: ebook.writer,
+    title: "Ebook Rejected",
+    message: `Your ebook "${ebook.title}" was not approved.`,
+    type: "error",
+  });
+
+  res.json({ success: true, message: "Ebook rejected", data: ebook });
 });
 
 export const getFeaturedEbooks = asyncHandler(async (req, res) => {
