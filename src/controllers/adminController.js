@@ -1,6 +1,8 @@
 import User from "../models/User.js";
 import Ebook from "../models/Ebook.js";
 import Transaction from "../models/Transaction.js";
+import Coupon from "../models/Coupon.js";
+import Review from "../models/Review.js";
 import { ApiError } from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
@@ -153,7 +155,7 @@ export const listAllTransactions = asyncHandler(async (req, res) => {
 });
 
 export const getAnalytics = asyncHandler(async (req, res) => {
-  const [totalUsers, totalWriters, totalEbooks, revenueResult, genreStats] =
+  const [totalUsers, totalWriters, totalEbooks, revenueResult, genreStats, couponStats, reviewCount, averageRatingResult] =
     await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: { $in: ["writer", "admin"] } }),
@@ -166,7 +168,24 @@ export const getAnalytics = asyncHandler(async (req, res) => {
         { $group: { _id: "$genre", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
       ]),
+      Transaction.aggregate([
+        { $match: { couponCode: { $ne: null } } },
+        {
+          $group: {
+            _id: "$couponCode",
+            usageCount: { $sum: 1 },
+            totalDiscount: { $sum: "$discountAmount" },
+          },
+        },
+      ]),
+      Review.countDocuments(),
+      Review.aggregate([
+        { $group: { _id: null, averageRating: { $avg: "$rating" } } },
+      ]),
     ]);
+
+  const totalCouponDiscount = couponStats.reduce((sum, c) => sum + c.totalDiscount, 0);
+  const totalCouponUsage = couponStats.reduce((sum, c) => sum + c.usageCount, 0);
 
   res.json({
     success: true,
@@ -176,6 +195,11 @@ export const getAnalytics = asyncHandler(async (req, res) => {
       totalEbooks,
       totalRevenue: revenueResult[0]?.total || 0,
       genreDistribution: genreStats,
+      couponUsageCount: totalCouponUsage,
+      totalCouponDiscount: Math.round(totalCouponDiscount * 100) / 100,
+      couponBreakdown: couponStats,
+      totalReviews: reviewCount,
+      averageRating: Math.round((averageRatingResult[0]?.averageRating || 0) * 10) / 10,
     },
   });
 });

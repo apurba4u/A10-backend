@@ -7,7 +7,10 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "seed": "node src/seeds/sample.js"
+    "seed": "node src/seeds/sampleData.js",
+    "seed:simple": "node src/seeds/sample.js",
+    "seed:coupons": "node src/seeds/seedCoupons.js",
+    "seed:reviews": "node src/seeds/seedReviews.js"
   },
   "keywords": [],
   "author": "",

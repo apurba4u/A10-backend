@@ -25,6 +25,22 @@ const transactionSchema = new mongoose.Schema(
       ref: "Ebook",
       default: null,
     },
+    originalPrice: {
+      type: Number,
+      default: 0,
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+    },
+    finalPrice: {
+      type: Number,
+      default: 0,
+    },
+    couponCode: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

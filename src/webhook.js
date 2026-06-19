@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import Transaction from "./models/Transaction.js";
 import Ebook from "./models/Ebook.js";
 import User from "./models/User.js";
+import Notification from "./models/Notification.js";
 import env from "./config/env.js";
 
 let stripe = null;
@@ -34,19 +35,19 @@ export async function handleWebhook(req, res) {
 
     try {
       if (type === "writer_verification") {
-        const user = await User.findById(userId);
-        if (user) {
-          user.isVerifiedWriter = true;
-          user.role = "writer";
-          await user.save();
-        }
-
         await Transaction.findOneAndUpdate(
           { transactionId: session.id },
           { status: "completed" }
         );
 
-        console.log(`Writer verified: ${userId}`);
+        await Notification.create({
+          user: userId,
+          title: "Writer Application Submitted",
+          message: "Your payment has been received. Your writer application is now pending admin review. You will be notified once a decision is made.",
+          type: "info",
+        });
+
+        console.log(`Writer verification payment completed: ${userId}`);
       } else if (type === "ebook_purchase" && ebookId && userId) {
         await Transaction.findOneAndUpdate(
           { transactionId: session.id },

@@ -195,7 +195,7 @@ export const getFeaturedEbooks = asyncHandler(async (req, res) => {
 });
 
 export const getTopWriters = asyncHandler(async (req, res) => {
-  const writers = await User.find({ role: { $in: ["writer", "admin"] } })
+  const writers = await User.find({ role: "writer" })
     .select("name avatar")
     .limit(3);
 

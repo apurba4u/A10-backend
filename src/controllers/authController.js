@@ -19,18 +19,30 @@ export const register = async (req, res, next) => {
     }
 
     const auth = getAuth();
-    const session = await auth.api.signUpEmail({
-      name,
-      email,
-      password,
-    });
+    let baResult;
+    try {
+      baResult = await auth.api.signUpEmail({
+        body: { name, email, password },
+        headers: new Headers(),
+      });
+    } catch (authError) {
+      if (authError.message?.includes("already") || authError.message?.includes("exists")) {
+        throw new ApiError("Email already registered", 409);
+      }
+      throw authError;
+    }
 
     const user = await User.create({
       name,
       email,
       role,
       avatar: null,
+      bio: "",
     });
+
+    if (baResult?.token) {
+      res.setHeader("Set-Cookie", `better-auth.session_token=${baResult.token}; Path=/; HttpOnly; SameSite=Lax`);
+    }
 
     res.status(201).json({
       success: true,
@@ -43,7 +55,7 @@ export const register = async (req, res, next) => {
           role: user.role,
           avatar: user.avatar,
         },
-        session: session.session,
+        token: baResult?.token || null,
       },
     });
   } catch (error) {
@@ -60,12 +72,21 @@ export const login = async (req, res, next) => {
     }
 
     const auth = getAuth();
-    const session = await auth.api.signInEmail({
-      email,
-      password,
-    });
+    let baResult;
+    try {
+      baResult = await auth.api.signInEmail({
+        body: { email, password },
+        headers: new Headers(),
+      });
+    } catch (authError) {
+      throw new ApiError("Invalid email or password", 401);
+    }
 
     const user = await User.findOne({ email });
+
+    if (baResult?.token) {
+      res.setHeader("Set-Cookie", `better-auth.session_token=${baResult.token}; Path=/; HttpOnly; SameSite=Lax`);
+    }
 
     res.json({
       success: true,
@@ -81,13 +102,10 @@ export const login = async (req, res, next) => {
               isVerifiedWriter: user.isVerifiedWriter,
             }
           : null,
-        session: session.session,
+        token: baResult?.token || null,
       },
     });
   } catch (error) {
-    if (error.message?.includes("Invalid")) {
-      throw new ApiError("Invalid email or password", 401);
-    }
     next(error);
   }
 };
@@ -109,7 +127,9 @@ export const getSession = async (req, res) => {
             email: user.email,
             role: user.role,
             avatar: user.avatar,
+            bio: user.bio,
             isVerifiedWriter: user.isVerifiedWriter,
+            createdAt: user.createdAt,
           }
         : null,
       session: req.session,
@@ -119,10 +139,28 @@ export const getSession = async (req, res) => {
 
 export const logout = async (req, res, next) => {
   try {
-    const auth = getAuth();
-    await auth.api.signOut({
-      headers: req.headers,
-    });
+    let sessionToken = null;
+    if (req.headers.cookie) {
+      const cookies = req.headers.cookie.split(";").map((c) => c.trim());
+      for (const cookie of cookies) {
+        const [name, value] = cookie.split("=");
+        if (name === "better-auth.session_token") {
+          sessionToken = value;
+          break;
+        }
+      }
+    }
+
+    if (sessionToken) {
+      const mongoose = await import("mongoose");
+      const db = mongoose.default.connection.db;
+      await db.collection("session").deleteOne({ token: sessionToken });
+    }
+
+    res.setHeader(
+      "Set-Cookie",
+      "better-auth.session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+    );
     res.json({ success: true, message: "Signed out successfully" });
   } catch (error) {
     next(error);

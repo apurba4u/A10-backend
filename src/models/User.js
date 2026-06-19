@@ -23,6 +23,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    bio: {
+      type: String,
+      default: "",
+      maxlength: [500, "Bio cannot exceed 500 characters"],
+    },
     role: {
       type: String,
       enum: ["user", "writer", "admin"],
@@ -48,6 +53,11 @@ const userSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Ebook",
+      },
+    ],
+    usedCoupons: [
+      {
+        type: String,
       },
     ],
   },

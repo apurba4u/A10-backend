@@ -20,12 +20,14 @@ export const getMe = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       avatar: user.avatar,
+      bio: user.bio,
       role: user.role,
       isVerifiedWriter: user.isVerifiedWriter,
       purchasedEbooks: user.purchasedEbooks,
       bookmarks: user.bookmarks,
       wishlist: user.wishlist,
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     },
   });
 });
@@ -54,8 +56,11 @@ export const updateMe = asyncHandler(async (req, res) => {
       name: user.name,
       email: user.email,
       avatar: user.avatar,
+      bio: user.bio,
       role: user.role,
       isVerifiedWriter: user.isVerifiedWriter,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     },
   });
 });

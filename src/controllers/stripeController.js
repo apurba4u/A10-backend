@@ -2,6 +2,8 @@ import Stripe from "stripe";
 import Ebook from "../models/Ebook.js";
 import Transaction from "../models/Transaction.js";
 import User from "../models/User.js";
+import WriterApplication from "../models/WriterApplication.js";
+import Coupon from "../models/Coupon.js";
 import { ApiError } from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import env from "../config/env.js";
@@ -16,10 +18,10 @@ export const createCheckoutSession = asyncHandler(async (req, res) => {
     throw new ApiError("Stripe is not configured", 500);
   }
 
-  const { ebookId, type } = req.body;
+  const { ebookId, type, couponCode } = req.body;
 
   if (type === "verification") {
-    const VERIFICATION_FEE_CENTS = 999;
+    const VERIFICATION_FEE_CENTS = 1000;
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
@@ -41,14 +43,22 @@ export const createCheckoutSession = asyncHandler(async (req, res) => {
         userId: req.user.id,
         type: "writer_verification",
       },
-      success_url: `${env.CLIENT_URL}/dashboard/writer?verified=success`,
-      cancel_url: `${env.CLIENT_URL}/dashboard/writer?verified=cancelled`,
+      success_url: `${env.CLIENT_URL}/dashboard/application-status?payment=success`,
+      cancel_url: `${env.CLIENT_URL}/become-writer?payment=cancelled`,
     });
 
     await Transaction.create({
       user: req.user.id,
       type: "verification",
       amount: VERIFICATION_FEE_CENTS / 100,
+      transactionId: session.id,
+    });
+
+    await WriterApplication.create({
+      user: req.user.id,
+      userName: req.user.name,
+      userEmail: req.user.email,
+      paymentAmount: VERIFICATION_FEE_CENTS / 100,
       transactionId: session.id,
     });
 
@@ -82,6 +92,54 @@ export const createCheckoutSession = asyncHandler(async (req, res) => {
     throw new ApiError("Already purchased", 409);
   }
 
+  const originalPrice = ebook.price;
+  let discountAmount = 0;
+  let finalPrice = originalPrice;
+  let appliedCouponCode = null;
+
+  if (couponCode) {
+    const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
+    if (!coupon) {
+      throw new ApiError("Invalid coupon code", 404);
+    }
+    if (!coupon.isActive) {
+      throw new ApiError("This coupon is no longer active", 400);
+    }
+    if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+      throw new ApiError("This coupon has expired", 400);
+    }
+    if (coupon.usageLimit !== null && coupon.usedCount >= coupon.usageLimit) {
+      throw new ApiError("This coupon has reached its usage limit", 400);
+    }
+    if (originalPrice < coupon.minPurchaseAmount) {
+      throw new ApiError(
+        `Minimum purchase amount is $${coupon.minPurchaseAmount}`,
+        400
+      );
+    }
+
+    const user = await User.findById(req.user.id).select("usedCoupons");
+    if (user && user.usedCoupons.includes(coupon.code)) {
+      throw new ApiError(
+        `You have already redeemed ${coupon.code}. This coupon can only be used once per account.`,
+        400
+      );
+    }
+
+    discountAmount = Math.round(originalPrice * coupon.discountPercent) / 100;
+    finalPrice = Math.round((originalPrice - discountAmount) * 100) / 100;
+    appliedCouponCode = coupon.code;
+
+    coupon.usedCount += 1;
+    await coupon.save();
+
+    await User.findByIdAndUpdate(req.user.id, {
+      $addToSet: { usedCoupons: coupon.code },
+    });
+  }
+
+  const chargeAmount = Math.round(finalPrice * 100);
+
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ["card"],
     mode: "payment",
@@ -93,7 +151,7 @@ export const createCheckoutSession = asyncHandler(async (req, res) => {
             name: ebook.title,
             description: ebook.description.substring(0, 200),
           },
-          unit_amount: Math.round(ebook.price * 100),
+          unit_amount: chargeAmount,
         },
         quantity: 1,
       },
@@ -102,6 +160,7 @@ export const createCheckoutSession = asyncHandler(async (req, res) => {
       ebookId: ebook._id.toString(),
       userId: req.user.id,
       type: "ebook_purchase",
+      couponCode: appliedCouponCode,
     },
     success_url: `${env.CLIENT_URL}/ebook/${ebook._id}?purchase=success`,
     cancel_url: `${env.CLIENT_URL}/ebook/${ebook._id}?purchase=cancelled`,
@@ -111,7 +170,11 @@ export const createCheckoutSession = asyncHandler(async (req, res) => {
     user: req.user.id,
     ebook: ebook._id,
     type: "purchase",
-    amount: ebook.price,
+    amount: finalPrice,
+    originalPrice,
+    discountAmount,
+    finalPrice,
+    couponCode: appliedCouponCode,
     transactionId: session.id,
     status: "pending",
   });
