@@ -1,27 +1,18 @@
 {
-  "name": "backend",
+  "name": "fable-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Fable ebook sharing platform - backend API",
+  "type": "module",
+  "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
-    "dev": "nodemon server.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/apurba4u/A10-backend.git"
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "seed": "node src/seeds/sample.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/apurba4u/A10-backend/issues"
-  },
-  "homepage": "https://github.com/apurba4u/A10-backend#readme",
-  "private": "true",
   "dependencies": {
-    "@better-auth/mongo-adapter": "^1.6.19",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.6.19",
     "cookie-parser": "^1.4.7",
@@ -36,6 +27,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
-  },
-  "type": "module"
+  }
 }
