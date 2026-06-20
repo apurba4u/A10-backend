@@ -4,16 +4,16 @@ import env from "./env.js";
 let isConnected = false;
 
 export async function connectDB() {
-  if (isConnected) return;
+  if (isConnected) return mongoose.connection;
 
   try {
-    const conn = await mongoose.connect(env.MONGO_URI);
+    await mongoose.connect(env.MONGO_URI);
     isConnected = true;
-    console.log(`MongoDB connected: ${conn.connection.host}`);
-    return conn;
+    console.log(`MongoDB connected: ${mongoose.connection.host}`);
+    return mongoose.connection;
   } catch (error) {
     console.error(`MongoDB connection error: ${error.message}`);
-    process.exit(1);
+    throw error;
   }
 }
 

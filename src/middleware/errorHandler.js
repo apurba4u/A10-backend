@@ -1,3 +1,5 @@
+import env from "../config/env.js";
+
 const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
   let message = err.message || "Internal Server Error";
@@ -35,14 +37,14 @@ const errorHandler = (err, req, res, next) => {
     message = "Token expired";
   }
 
-  if (process.env.NODE_ENV === "development") {
+  if (env.NODE_ENV === "development") {
     console.error("ERROR:", err);
   }
 
   res.status(statusCode).json({
     success: false,
     message,
-    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
+    ...(env.NODE_ENV === "development" && { stack: err.stack }),
   });
 };
 

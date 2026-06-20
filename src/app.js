@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import mongoose from "mongoose";
 import env from "./config/env.js";
 import { connectDB } from "./config/db.js";
 import { createAuth } from "./config/auth.js";
@@ -11,19 +12,35 @@ import notFound from "./middleware/notFound.js";
 import routes from "./routes/index.js";
 import { handleWebhook } from "./webhook.js";
 import seedAdmin from "./seeds/admin.js";
-import User from "./models/User.js";
 
-async function start() {
+let cachedApp = null;
+
+export async function initApp() {
+  if (cachedApp) return cachedApp;
+
   const conn = await connectDB();
-  const db = conn.connection.db;
+  const db = conn.db;
   const auth = createAuth(db);
 
   const app = express();
 
   // CORS must be first
+  const allowedOrigins = [
+    env.CLIENT_URL,
+    env.FRONTEND_URL,
+    "http://localhost:3000",
+    "https://fable-tau.vercel.app",
+  ].filter(Boolean);
+
   app.use(
     cors({
-      origin: env.CLIENT_URL || "http://localhost:3000",
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(null, true);
+        }
+      },
       credentials: true,
     })
   );
@@ -48,6 +65,30 @@ async function start() {
   // Session middleware (maps Better Auth session to Mongoose user)
   app.use(sessionMiddleware);
 
+  // Root route
+  app.get("/", (req, res) => {
+    res.json({
+      success: true,
+      message: "Fable Backend API Running",
+      environment: env.NODE_ENV,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Health check route
+  app.get("/health", (req, res) => {
+    const dbState = mongoose.connection.readyState;
+    const states = { 0: "disconnected", 1: "connected", 2: "connecting", 3: "disconnecting" };
+    res.json({
+      success: true,
+      status: "healthy",
+      database: states[dbState] || "unknown",
+      databaseName: mongoose.connection.name || "unknown",
+      environment: env.NODE_ENV,
+      uptime: process.uptime(),
+    });
+  });
+
   // API routes
   app.use("/api/v1", routes);
 
@@ -55,31 +96,33 @@ async function start() {
   app.use(notFound);
   app.use(errorHandler);
 
-  // Seed admin
+  // Seed admin (idempotent)
   await seedAdmin();
 
-  // Verify admin exists
-  const adminUser = await User.findOne({ email: "admin@fable.com" });
-  if (adminUser) {
-    console.log(`Admin user found: ${adminUser.email} (role: ${adminUser.role})`);
-  } else {
-    console.log("WARNING: Admin user not found after seeding");
-  }
+  console.log(`[${env.NODE_ENV}] MongoDB: ${mongoose.connection.name} @ ${mongoose.connection.host}`);
+  console.log(`[${env.NODE_ENV}] Better Auth URL: ${env.BETTER_AUTH_URL}`);
+  console.log(`[${env.NODE_ENV}] Google OAuth: ${env.GOOGLE_CLIENT_ID ? "Configured" : "NOT CONFIGURED"}`);
+  console.log(`[${env.NODE_ENV}] Client URL: ${env.CLIENT_URL}`);
 
-  // Log auth configuration
-  console.log(`Better Auth URL: ${env.BETTER_AUTH_URL}`);
-  console.log(`Google OAuth: ${env.GOOGLE_CLIENT_ID ? "Configured" : "NOT CONFIGURED"}`);
-  console.log(`Client URL: ${env.CLIENT_URL}`);
-
-  app.listen(env.PORT, () => {
-    console.log(`Server running on port ${env.PORT}`);
-    console.log(`Auth endpoints: http://localhost:${env.PORT}/api/auth/*`);
-    console.log(`API endpoints: http://localhost:${env.PORT}/api/v1/*`);
-  });
-
+  cachedApp = app;
   return app;
 }
 
-start();
+async function start() {
+  const app = await initApp();
 
-export default start;
+  app.listen(env.PORT, () => {
+    console.log(`Server running on port ${env.PORT}`);
+    console.log(`Root:       http://localhost:${env.PORT}/`);
+    console.log(`Health:     http://localhost:${env.PORT}/health`);
+    console.log(`Auth:       http://localhost:${env.PORT}/api/auth/*`);
+    console.log(`API:        http://localhost:${env.PORT}/api/v1/*`);
+  });
+}
+
+const isVercel = !!process.env.VERCEL;
+if (!isVercel) {
+  start();
+}
+
+export default initApp;

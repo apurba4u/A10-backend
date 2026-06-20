@@ -2,6 +2,14 @@ import { getAuth } from "../config/auth.js";
 import { ApiError } from "../utils/ApiError.js";
 import User from "../models/User.js";
 import { registerSchema } from "../validators/auth.js";
+import env from "../config/env.js";
+
+function getCookieFlags() {
+  const isProduction = env.NODE_ENV === "production";
+  return isProduction
+    ? "; SameSite=None; Secure"
+    : "; SameSite=Lax";
+}
 
 export const register = async (req, res, next) => {
   try {
@@ -41,7 +49,10 @@ export const register = async (req, res, next) => {
     });
 
     if (baResult?.token) {
-      res.setHeader("Set-Cookie", `better-auth.session_token=${baResult.token}; Path=/; HttpOnly; SameSite=Lax`);
+      res.setHeader(
+        "Set-Cookie",
+        `better-auth.session_token=${baResult.token}; Path=/; HttpOnly${getCookieFlags()}`
+      );
     }
 
     res.status(201).json({
@@ -85,7 +96,10 @@ export const login = async (req, res, next) => {
     const user = await User.findOne({ email });
 
     if (baResult?.token) {
-      res.setHeader("Set-Cookie", `better-auth.session_token=${baResult.token}; Path=/; HttpOnly; SameSite=Lax`);
+      res.setHeader(
+        "Set-Cookie",
+        `better-auth.session_token=${baResult.token}; Path=/; HttpOnly${getCookieFlags()}`
+      );
     }
 
     res.json({
@@ -159,7 +173,7 @@ export const logout = async (req, res, next) => {
 
     res.setHeader(
       "Set-Cookie",
-      "better-auth.session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
+      `better-auth.session_token=; Path=/; HttpOnly; Max-Age=0${getCookieFlags()}`
     );
     res.json({ success: true, message: "Signed out successfully" });
   } catch (error) {

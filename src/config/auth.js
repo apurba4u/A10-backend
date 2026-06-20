@@ -13,13 +13,20 @@ export function getAuth() {
 }
 
 export function createAuth(db) {
+  const isProduction = env.NODE_ENV === "production";
+
   authInstance = betterAuth({
     database: mongodbAdapter(db, {
       client: db.client,
     }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
-    trustedOrigins: [env.CLIENT_URL],
+    trustedOrigins: [
+      env.CLIENT_URL,
+      env.FRONTEND_URL,
+      "http://localhost:3000",
+      "https://fable-tau.vercel.app",
+    ].filter(Boolean),
     emailAndPassword: {
       enabled: true,
       autoSignIn: true,
@@ -44,8 +51,8 @@ export function createAuth(db) {
     plugins: [admin()],
     advanced: {
       defaultCookieAttributes: {
-        sameSite: "lax",
-        secure: env.NODE_ENV === "production",
+        sameSite: isProduction ? "none" : "lax",
+        secure: isProduction,
         httpOnly: true,
       },
     },

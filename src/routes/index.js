@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 import authRoutes from "./auth.js";
 import userRoutes from "./users.js";
 import ebookRoutes from "./ebooks.js";
@@ -15,7 +16,15 @@ import notificationRoutes from "./notifications.js";
 const router = Router();
 
 router.get("/health", (req, res) => {
-  res.json({ success: true, message: "Fable API is running" });
+  const dbState = mongoose.connection.readyState;
+  const states = { 0: "disconnected", 1: "connected", 2: "connecting", 3: "disconnecting" };
+  res.json({
+    success: true,
+    status: "healthy",
+    database: states[dbState] || "unknown",
+    databaseName: mongoose.connection.name || "unknown",
+    uptime: process.uptime(),
+  });
 });
 
 router.use("/auth", authRoutes);
