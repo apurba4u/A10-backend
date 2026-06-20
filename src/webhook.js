@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import Transaction from "./models/Transaction.js";
 import Ebook from "./models/Ebook.js";
 import User from "./models/User.js";
+import Coupon from "./models/Coupon.js";
 import Notification from "./models/Notification.js";
 import env from "./config/env.js";
 
@@ -31,7 +32,7 @@ export async function handleWebhook(req, res) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
-    const { ebookId, userId, type } = session.metadata;
+    const { ebookId, userId, type, couponCode } = session.metadata;
 
     try {
       if (type === "writer_verification") {
@@ -60,7 +61,24 @@ export async function handleWebhook(req, res) {
           await user.save();
         }
 
-        await Ebook.findByIdAndUpdate(ebookId, { $inc: { soldCount: 1 } });
+        const ebook = await Ebook.findByIdAndUpdate(ebookId, { $inc: { soldCount: 1 } }).select("title");
+
+        if (couponCode) {
+          await Coupon.findOneAndUpdate(
+            { code: couponCode },
+            { $inc: { usedCount: 1 } }
+          );
+          await User.findByIdAndUpdate(userId, {
+            $addToSet: { usedCoupons: couponCode },
+          });
+        }
+
+        await Notification.create({
+          user: userId,
+          title: "Purchase Successful",
+          message: `Your ebook "${ebook?.title || "ebook"}" has been added to My Library. You can now read it from your dashboard.`,
+          type: "success",
+        });
 
         console.log(`Ebook purchased: ${ebookId} by user ${userId}`);
       }

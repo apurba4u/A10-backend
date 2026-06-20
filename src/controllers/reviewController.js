@@ -60,7 +60,7 @@ export const createReview = asyncHandler(async (req, res) => {
     user: req.user.id,
     ebook: ebookId,
     type: "purchase",
-    status: "completed",
+    $or: [{ status: "completed" }, { status: { $exists: false } }],
   });
 
   if (!existingPurchase) {

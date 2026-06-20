@@ -86,7 +86,7 @@ export const createCheckoutSession = asyncHandler(async (req, res) => {
     user: req.user.id,
     ebook: ebookId,
     type: "purchase",
-    status: "completed",
+    $or: [{ status: "completed" }, { status: { $exists: false } }],
   });
   if (existingPurchase) {
     throw new ApiError("Already purchased", 409);
@@ -129,13 +129,6 @@ export const createCheckoutSession = asyncHandler(async (req, res) => {
     discountAmount = Math.round(originalPrice * coupon.discountPercent) / 100;
     finalPrice = Math.round((originalPrice - discountAmount) * 100) / 100;
     appliedCouponCode = coupon.code;
-
-    coupon.usedCount += 1;
-    await coupon.save();
-
-    await User.findByIdAndUpdate(req.user.id, {
-      $addToSet: { usedCoupons: coupon.code },
-    });
   }
 
   const chargeAmount = Math.round(finalPrice * 100);
@@ -187,7 +180,7 @@ export const checkPurchase = asyncHandler(async (req, res) => {
     user: req.user.id,
     ebook: req.params.ebookId,
     type: "purchase",
-    status: "completed",
+    $or: [{ status: "completed" }, { status: { $exists: false } }],
   });
 
   res.json({ success: true, purchased: !!transaction });

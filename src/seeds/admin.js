@@ -20,6 +20,10 @@ async function seedAdmin() {
     const existingBetterAuthAccount = await db.collection("account").findOne({ accountId: adminEmail });
 
     if (existingMongooseAdmin && existingBetterAuthUser && existingBetterAuthAccount) {
+      if (!existingMongooseAdmin.hasChosenRole) {
+        await User.findByIdAndUpdate(existingMongooseAdmin._id, { hasChosenRole: true });
+        console.log("Admin hasChosenRole set to true");
+      }
       console.log("Admin account already exists in all collections, skipping seed");
       return;
     }
@@ -81,6 +85,7 @@ async function seedAdmin() {
       password: hashedPassword,
       role: "admin",
       isVerifiedWriter: true,
+      hasChosenRole: true,
       avatar: null,
     });
     console.log(`Admin account seeded: ${admin.email} (role: ${admin.role})`);

@@ -74,6 +74,10 @@ export const approveApplication = asyncHandler(async (req, res) => {
 export const rejectApplication = asyncHandler(async (req, res) => {
   const { rejectionReason } = req.body;
 
+  if (!rejectionReason || rejectionReason.trim().length < 20) {
+    throw new ApiError("Rejection reason must be at least 20 characters", 400);
+  }
+
   const application = await WriterApplication.findById(req.params.id);
   if (!application) {
     throw new ApiError("Application not found", 404);
@@ -85,14 +89,14 @@ export const rejectApplication = asyncHandler(async (req, res) => {
   application.status = "rejected";
   application.reviewedBy = req.user.id;
   application.reviewedAt = new Date();
-  application.rejectionReason = rejectionReason || "Application not approved";
+  application.rejectionReason = rejectionReason.trim();
   application.refundStatus = "refunded";
   await application.save();
 
   await Notification.create({
     user: application.user,
     title: "Writer Application Rejected",
-    message: "Unfortunately your application was not approved. Your payment has been refunded. Please check your account balance.",
+    message: `Your writer application was not approved. Reason: ${rejectionReason.trim()}. Your payment has been refunded.`,
     type: "error",
   });
 

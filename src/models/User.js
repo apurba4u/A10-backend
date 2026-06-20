@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "writer", "admin"],
       default: "user",
     },
+    hasChosenRole: {
+      type: Boolean,
+      default: false,
+    },
     isVerifiedWriter: {
       type: Boolean,
       default: false,

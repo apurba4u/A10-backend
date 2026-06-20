@@ -24,7 +24,6 @@ export function createAuth(db) {
     trustedOrigins: [
       env.CLIENT_URL,
       env.FRONTEND_URL,
-      "http://localhost:3000",
       "https://fable-tau.vercel.app",
     ].filter(Boolean),
     emailAndPassword: {
@@ -47,6 +46,10 @@ export function createAuth(db) {
           input: false,
         },
       },
+    },
+    account: {
+      storeStateStrategy: "database",
+      skipStateCookieCheck: true,
     },
     plugins: [admin()],
     advanced: {

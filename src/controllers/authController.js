@@ -4,13 +4,6 @@ import User from "../models/User.js";
 import { registerSchema } from "../validators/auth.js";
 import env from "../config/env.js";
 
-function getCookieFlags() {
-  const isProduction = env.NODE_ENV === "production";
-  return isProduction
-    ? "; SameSite=None; Secure"
-    : "; SameSite=Lax";
-}
-
 export const register = async (req, res, next) => {
   try {
     const result = registerSchema.safeParse(req.body);
@@ -46,14 +39,8 @@ export const register = async (req, res, next) => {
       role,
       avatar: null,
       bio: "",
+      hasChosenRole: true,
     });
-
-    if (baResult?.token) {
-      res.setHeader(
-        "Set-Cookie",
-        `better-auth.session_token=${baResult.token}; Path=/; HttpOnly${getCookieFlags()}`
-      );
-    }
 
     res.status(201).json({
       success: true,
@@ -66,7 +53,6 @@ export const register = async (req, res, next) => {
           role: user.role,
           avatar: user.avatar,
         },
-        token: baResult?.token || null,
       },
     });
   } catch (error) {
@@ -83,24 +69,17 @@ export const login = async (req, res, next) => {
     }
 
     const auth = getAuth();
-    let baResult;
     try {
-      baResult = await auth.api.signInEmail({
+      await auth.api.signInEmail({
         body: { email, password },
         headers: new Headers(),
+        asResponse: false,
       });
     } catch (authError) {
       throw new ApiError("Invalid email or password", 401);
     }
 
     const user = await User.findOne({ email });
-
-    if (baResult?.token) {
-      res.setHeader(
-        "Set-Cookie",
-        `better-auth.session_token=${baResult.token}; Path=/; HttpOnly${getCookieFlags()}`
-      );
-    }
 
     res.json({
       success: true,
@@ -114,9 +93,9 @@ export const login = async (req, res, next) => {
               role: user.role,
               avatar: user.avatar,
               isVerifiedWriter: user.isVerifiedWriter,
+              hasChosenRole: user.hasChosenRole,
             }
           : null,
-        token: baResult?.token || null,
       },
     });
   } catch (error) {
@@ -143,6 +122,7 @@ export const getSession = async (req, res) => {
             avatar: user.avatar,
             bio: user.bio,
             isVerifiedWriter: user.isVerifiedWriter,
+            hasChosenRole: user.hasChosenRole,
             createdAt: user.createdAt,
           }
         : null,
@@ -168,14 +148,47 @@ export const logout = async (req, res, next) => {
     if (sessionToken) {
       const mongoose = await import("mongoose");
       const db = mongoose.default.connection.db;
-      await db.collection("session").deleteOne({ token: sessionToken });
+      const rawToken = sessionToken.split(".")[0];
+      await db.collection("session").deleteOne({ token: rawToken });
     }
 
-    res.setHeader(
-      "Set-Cookie",
-      `better-auth.session_token=; Path=/; HttpOnly; Max-Age=0${getCookieFlags()}`
-    );
     res.json({ success: true, message: "Signed out successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateRole = async (req, res, next) => {
+  try {
+    const { role } = req.body;
+    if (!role || !["user", "writer"].includes(role)) {
+      throw new ApiError("Invalid role. Must be 'user' or 'writer'", 400);
+    }
+
+    if (!req.user) {
+      throw new ApiError("Not authenticated", 401);
+    }
+
+    const user = await User.findOne({ email: req.user.email });
+    if (!user) {
+      throw new ApiError("User not found", 404);
+    }
+
+    user.role = role;
+    user.hasChosenRole = true;
+    await user.save();
+
+    res.json({
+      success: true,
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        hasChosenRole: user.hasChosenRole,
+      },
+    });
   } catch (error) {
     next(error);
   }

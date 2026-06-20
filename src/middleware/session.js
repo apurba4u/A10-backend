@@ -17,7 +17,7 @@ const sessionMiddleware = async (req, res, next) => {
       const cookies = req.headers.cookie.split(";").map((c) => c.trim());
       for (const cookie of cookies) {
         const [name, value] = cookie.split("=");
-        if (name === "better-auth.session_token") {
+        if (name === "better-auth.session_token" || name === "__Secure-better-auth.session_token") {
           sessionToken = value;
           break;
         }
@@ -30,10 +30,13 @@ const sessionMiddleware = async (req, res, next) => {
       return next();
     }
 
+    // Better Auth cookie format: {sessionId}.{signature} — strip the signature part
+    const rawToken = sessionToken.split(".")[0];
+
     // Look up session directly in Better Auth session collection
     const db = mongoose.connection.db;
     const baSession = await db.collection("session").findOne({
-      token: sessionToken,
+      token: rawToken,
       expiresAt: { $gt: new Date() },
     });
 

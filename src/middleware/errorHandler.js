@@ -18,13 +18,12 @@ const errorHandler = (err, req, res, next) => {
 
   if (err.name === "CastError") {
     statusCode = 400;
-    message = `Invalid ${err.path}: ${err.value}`;
+    message = "Invalid input provided";
   }
 
   if (err.code === 11000) {
     statusCode = 409;
-    const field = Object.keys(err.keyValue || {})[0];
-    message = field ? `Duplicate value for ${field}` : "Duplicate field value";
+    message = "A record with this value already exists";
   }
 
   if (err.name === "JsonWebTokenError") {
@@ -39,6 +38,10 @@ const errorHandler = (err, req, res, next) => {
 
   if (env.NODE_ENV === "development") {
     console.error("ERROR:", err);
+  }
+
+  if (env.NODE_ENV === "production" && statusCode === 500) {
+    message = "Something went wrong. Please try again later.";
   }
 
   res.status(statusCode).json({

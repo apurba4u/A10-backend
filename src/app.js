@@ -28,7 +28,6 @@ export async function initApp() {
   const allowedOrigins = [
     env.CLIENT_URL,
     env.FRONTEND_URL,
-    "http://localhost:3000",
     "https://fable-tau.vercel.app",
   ].filter(Boolean);
 
@@ -38,7 +37,7 @@ export async function initApp() {
         if (!origin || allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
-          callback(null, true);
+          callback(new Error("Not allowed by CORS"));
         }
       },
       credentials: true,

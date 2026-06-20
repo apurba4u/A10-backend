@@ -161,7 +161,7 @@ export const getAnalytics = asyncHandler(async (req, res) => {
       User.countDocuments({ role: { $in: ["writer", "admin"] } }),
       Ebook.countDocuments(),
       Transaction.aggregate([
-        { $match: { type: "purchase", status: "completed" } },
+        { $match: { type: "purchase", $or: [{ status: "completed" }, { status: { $exists: false } }] } },
         { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
       Ebook.aggregate([
@@ -212,7 +212,7 @@ export const getMonthlyRevenue = asyncHandler(async (req, res) => {
     {
       $match: {
         type: "purchase",
-        status: "completed",
+        $or: [{ status: "completed" }, { status: { $exists: false } }],
         createdAt: { $gte: twelveMonthsAgo },
       },
     },
